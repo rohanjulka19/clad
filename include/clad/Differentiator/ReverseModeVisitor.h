@@ -61,6 +61,8 @@ namespace clad {
     /// Output variable of vector-valued function
     std::string outputArrayStr;
     std::vector<Stmts> m_LoopBlock;
+    clang::Expr* m_CurrentBreakFlagExpr;
+
     unsigned outputArrayCursor = 0;
     unsigned numParams = 0;
     // FIXME: Should we make this an object instead of a pointer?
@@ -561,9 +563,6 @@ namespace clad {
 
       ReverseModeVisitor& m_RMV;
 
-      const bool m_IsInvokedBySwitchStmt = false;
-      /// Builds and returns a literal expression of type `std::size_t` with
-      /// `value` as value.
       clang::Expr* CreateSizeTLiteralExpr(std::size_t value);
 
       /// Initialise the `m_ControlFlowTape`.
@@ -576,6 +575,8 @@ namespace clad {
       clang::Expr* CreateCFTapePushExpr(std::size_t value);
 
     public:
+      const bool m_IsInvokedBySwitchStmt = false;
+
       BreakContStmtHandler(ReverseModeVisitor& RMV, bool forSwitchStmt = false)
           : m_RMV(RMV), m_IsInvokedBySwitchStmt(forSwitchStmt) {}
 
@@ -597,6 +598,8 @@ namespace clad {
       /// expression, where `TapeRef` and `m_CurrentCounter` are replaced
       /// by their actual values respectively.
       clang::Stmt* CreateCFTapePushExprToCurrentCase();
+
+      clang::Expr* CreateCFTapeBackExprForCurrentCase();
 
       /// Does final modifications on forward and reverse blocks
       /// so that `break` and `continue` statements are handled
