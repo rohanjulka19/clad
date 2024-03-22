@@ -2331,6 +2331,7 @@ int main() {
   TEST_2(fn27, 3, 5);     // CHECK-EXEC: {5.00, 3.00}
   TEST_2(fn28, 3, 5);     // CHECK-EXEC: {5.00, 3.00}
   TEST_2(fn29, 3, 5);     // CHECK-EXEC: {5.00, 3.00}
+
 }
 
 //CHECK:   void sq_pullback(double x, double _d_y, double *_d_x) {
