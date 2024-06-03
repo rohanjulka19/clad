@@ -61,6 +61,7 @@ namespace clad {
     /// Output variable of vector-valued function
     std::string outputArrayStr;
     std::vector<Stmts> m_LoopBlock;
+    llvm::SmallVector<clang::Expr*> m_LoopBreakFlagExprs;
     unsigned outputArrayCursor = 0;
     unsigned numParams = 0;
     bool isVectorValued = false;

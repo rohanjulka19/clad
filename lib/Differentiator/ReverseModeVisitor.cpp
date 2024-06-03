@@ -969,6 +969,11 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
                Scope::ContinueScope);
     beginBlock(direction::reverse);
     LoopCounter loopCounter(*this);
+    Expr* loopBreakFlag = GlobalStoreAndRef(
+        ConstantFolder::synthesizeLiteral(m_Context.IntTy, m_Context, 0),
+        m_Context.getSizeType(), "_t", /*force=*/true);
+
+    m_LoopBreakFlagExprs.push_back(loopBreakFlag);
     const Stmt* init = FS->getInit();
     if (m_ExternalSource)
       m_ExternalSource->ActBeforeDifferentiatingLoopInitStmt();
@@ -977,7 +982,6 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
     // Save the isInsideLoop value (we may be inside another loop).
     llvm::SaveAndRestore<bool> SaveIsInsideLoop(isInsideLoop);
     isInsideLoop = true;
-
     StmtDiff condVarRes;
     VarDecl* condVarClone = nullptr;
     if (FS->getConditionVariable()) {
@@ -1081,11 +1085,16 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
                                             noLoc,
                                             noLoc);
     addToCurrentBlock(unwrapIfSingleStmt(condDiffOuter.getStmt()));
-    addToCurrentBlock(Forward, direction::forward);
-    Forward = endBlock(direction::forward);
-    addToCurrentBlock(loopCounter.getPop(), direction::reverse);
     addToCurrentBlock(initResult.getStmt_dx(), direction::reverse);
-    addToCurrentBlock(condDiffOuter.getStmt_dx(), direction::reverse);
+    Expr* loopBreakFlagCond = BuildOp(UnaryOperatorKind::UO_LNot,
+                                      m_LoopBreakFlagExprs.pop_back_val());
+    if (condDiffOuter.getStmt_dx()) {
+      auto* IfStmt =
+          clad_compat::IfStmt_Create(m_Context, noLoc, false, nullptr, nullptr,
+                                     loopBreakFlagCond, noLoc, noLoc,
+                                     condDiffOuter.getStmt_dx(), noLoc, nullptr);
+      addToCurrentBlock(IfStmt, direction::reverse);
+    }
     addToCurrentBlock(Reverse, direction::reverse);
     Reverse = endBlock(direction::reverse);
     endScope();
@@ -3449,6 +3458,10 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
       }
     }
 
+    activeBreakContHandler->EndCFSwitchStmtScope();
+    activeBreakContHandler->UpdateForwAndRevBlocks(bodyDiff);
+    PopBreakContStmtHandler();
+
     if (condDiff && unwrapIfSingleStmt(condDiff->getStmt_dx())) {
       if (bodyDiff.getStmt_dx()) {
         bodyDiff.updateStmtDx(utils::PrependAndCreateCompoundStmt(
@@ -3468,10 +3481,6 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
         bodyDiff.updateStmt(unwrapIfSingleStmt(condDiff->getStmt()));
       }
     }
-
-    activeBreakContHandler->EndCFSwitchStmtScope();
-    activeBreakContHandler->UpdateForwAndRevBlocks(bodyDiff);
-    PopBreakContStmtHandler();
 
     Expr* counterDecrement = loopCounter.getCounterDecrement();
 
@@ -3514,6 +3523,11 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
     Stmt* CFCaseStmt = activeBreakContHandler->GetNextCFCaseStmt();
     Stmt* pushExprToCurrentCase = activeBreakContHandler
                                       ->CreateCFTapePushExprToCurrentCase();
+    if (isInsideLoop) {
+      Expr* breakFlagSetExpr = BuildOp(BinaryOperatorKind::BO_Assign, m_LoopBreakFlagExprs.back(),
+                                       ConstantFolder::synthesizeLiteral(m_Context.IntTy, m_Context, 1));
+      addToCurrentBlock(breakFlagSetExpr);
+    }
     addToCurrentBlock(pushExprToCurrentCase);
     addToCurrentBlock(newBS);
     return {endBlock(direction::forward), CFCaseStmt};
