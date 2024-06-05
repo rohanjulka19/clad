@@ -969,11 +969,8 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
                Scope::ContinueScope);
     beginBlock(direction::reverse);
     LoopCounter loopCounter(*this);
-    Expr* loopBreakFlag = GlobalStoreAndRef(
-        ConstantFolder::synthesizeLiteral(m_Context.IntTy, m_Context, 0),
-        m_Context.getSizeType(), "_t", /*force=*/true);
-
-    m_LoopBreakFlagExprs.push_back(loopBreakFlag);
+    llvm::SaveAndRestore<Expr*> SaveCurrentBreakFlagExpr(m_CurrentBreakFlagExpr);
+    m_CurrentBreakFlagExpr = nullptr;
     const Stmt* init = FS->getInit();
     if (m_ExternalSource)
       m_ExternalSource->ActBeforeDifferentiatingLoopInitStmt();
@@ -992,7 +989,6 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
       }
     }
 
-    // FIXME: for now we assume that cond has no differentiable effects,
     // but it is not generally true, e.g. for (...; (x = y); ...)...
     StmtDiff condDiff;
     StmtDiff condExprDiff;
@@ -1084,16 +1080,20 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
                                             noLoc,
                                             noLoc,
                                             noLoc);
-    addToCurrentBlock(unwrapIfSingleStmt(condDiffOuter.getStmt()));
+    addToCurrentBlock(utils::unwrapIfSingleStmt(condDiffOuter.getStmt()));
     addToCurrentBlock(initResult.getStmt_dx(), direction::reverse);
-    Expr* loopBreakFlagCond = BuildOp(UnaryOperatorKind::UO_LNot,
-                                      m_LoopBreakFlagExprs.pop_back_val());
     if (condDiffOuter.getStmt_dx()) {
-      auto* IfStmt =
-          clad_compat::IfStmt_Create(m_Context, noLoc, false, nullptr, nullptr,
-                                     loopBreakFlagCond, noLoc, noLoc,
-                                     condDiffOuter.getStmt_dx(), noLoc, nullptr);
-      addToCurrentBlock(IfStmt, direction::reverse);
+      if(m_CurrentBreakFlagExpr) {
+        Expr* loopBreakFlagCond = BuildOp(UnaryOperatorKind::UO_LNot,
+                                          m_CurrentBreakFlagExpr);
+        auto* IfStmt =
+            clad_compat::IfStmt_Create(m_Context, noLoc, false, nullptr, nullptr,
+                                       loopBreakFlagCond, noLoc, noLoc,
+                                       condDiffOuter.getStmt_dx(), noLoc, nullptr);
+        addToCurrentBlock(IfStmt, direction::reverse);
+      } else {
+        addToCurrentBlock(condDiffOuter.getStmt_dx(), direction::reverse);
+      }
     }
     addToCurrentBlock(Reverse, direction::reverse);
     Reverse = endBlock(direction::reverse);
@@ -2400,8 +2400,8 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
                                      L, noLoc, noLoc, R, noLoc, nullptr);
 
       StmtDiff IfStmtDiff = VisitIfStmt(IfStmt);
-      addToCurrentBlock(unwrapIfSingleStmt(IfStmtDiff.getStmt()));
-      addToCurrentBlock(unwrapIfSingleStmt(IfStmtDiff.getStmt_dx()),
+      addToCurrentBlock(utils::unwrapIfSingleStmt(IfStmtDiff.getStmt()));
+      addToCurrentBlock(utils::unwrapIfSingleStmt(IfStmtDiff.getStmt_dx()),
                         direction::reverse);
       return BinOpClone;
     } else {
@@ -3458,29 +3458,19 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
       }
     }
 
-    activeBreakContHandler->EndCFSwitchStmtScope();
-    activeBreakContHandler->UpdateForwAndRevBlocks(bodyDiff);
-    PopBreakContStmtHandler();
-
-    if (condDiff && unwrapIfSingleStmt(condDiff->getStmt_dx())) {
-      if (bodyDiff.getStmt_dx()) {
-        bodyDiff.updateStmtDx(utils::PrependAndCreateCompoundStmt(
-            m_Context, bodyDiff.getStmt_dx(),
-            unwrapIfSingleStmt(condDiff->getStmt_dx())));
-      } else {
-        bodyDiff.updateStmtDx(unwrapIfSingleStmt(condDiff->getStmt_dx()));
-      }
-    }
-
-    if (condDiff && unwrapIfSingleStmt(condDiff->getStmt())) {
+    if (condDiff && utils::unwrapIfSingleStmt(condDiff->getStmt())) {
       if (bodyDiff.getStmt()) {
         bodyDiff.updateStmt(utils::PrependAndCreateCompoundStmt(
             m_Context, bodyDiff.getStmt(),
-            unwrapIfSingleStmt(condDiff->getStmt())));
+            utils::unwrapIfSingleStmt(condDiff->getStmt())));
       } else {
-        bodyDiff.updateStmt(unwrapIfSingleStmt(condDiff->getStmt()));
+        bodyDiff.updateStmt(utils::unwrapIfSingleStmt(condDiff->getStmt()));
       }
     }
+
+    activeBreakContHandler->EndCFSwitchStmtScope();
+    activeBreakContHandler->UpdateForwAndRevBlocks(bodyDiff);
+    PopBreakContStmtHandler();
 
     Expr* counterDecrement = loopCounter.getCounterDecrement();
 
@@ -3497,6 +3487,7 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
     // loop iteration-expression.
     if (!isForLoop)
       addToCurrentBlock(counterDecrement, direction::reverse);
+    addToCurrentBlock(condDiff->getStmt_dx(), direction::reverse);
     addToCurrentBlock(condVarDiff, direction::reverse);
     addToCurrentBlock(bodyDiff.getStmt_dx(), direction::reverse);
     bodyDiff = {bodyDiff.getStmt(),
@@ -3524,9 +3515,14 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
     Stmt* pushExprToCurrentCase = activeBreakContHandler
                                       ->CreateCFTapePushExprToCurrentCase();
     if (isInsideLoop) {
-      Expr* breakFlagSetExpr = BuildOp(BinaryOperatorKind::BO_Assign, m_LoopBreakFlagExprs.back(),
-                                       ConstantFolder::synthesizeLiteral(m_Context.IntTy, m_Context, 1));
-      addToCurrentBlock(breakFlagSetExpr);
+      if (!m_CurrentBreakFlagExpr) {
+        m_CurrentBreakFlagExpr = BuildDeclRef(GlobalStoreImpl(m_Context.IntTy, "_t"));
+        Expr* breakFlagInitExpr = BuildOp(BinaryOperatorKind::BO_Assign, m_CurrentBreakFlagExpr,
+                                          ConstantFolder::synthesizeLiteral(m_Context.IntTy, m_Context, 0));
+        addToBlock(breakFlagInitExpr, m_Globals);
+      }
+      addToCurrentBlock(BuildOp(BinaryOperatorKind::BO_Assign, m_CurrentBreakFlagExpr,
+                                ConstantFolder::synthesizeLiteral(m_Context.IntTy, m_Context, 1)));
     }
     addToCurrentBlock(pushExprToCurrentCase);
     addToCurrentBlock(newBS);
