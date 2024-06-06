@@ -566,9 +566,6 @@ namespace clad {
 
       ReverseModeVisitor& m_RMV;
 
-      const bool m_IsInvokedBySwitchStmt = false;
-      /// Builds and returns a literal expression of type `std::size_t` with
-      /// `value` as value.
       clang::Expr* CreateSizeTLiteralExpr(std::size_t value);
 
       /// Initialise the `m_ControlFlowTape`.
@@ -581,6 +578,10 @@ namespace clad {
       clang::Expr* CreateCFTapePushExpr(std::size_t value);
 
     public:
+      const bool m_IsInvokedBySwitchStmt = false;
+      /// Builds and returns a literal expression of type `std::size_t` with
+      /// `value` as value.
+
       BreakContStmtHandler(ReverseModeVisitor& RMV, bool forSwitchStmt = false)
           : m_RMV(RMV), m_IsInvokedBySwitchStmt(forSwitchStmt) {}
 

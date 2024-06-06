@@ -1082,6 +1082,7 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
                                             noLoc);
     addToCurrentBlock(utils::unwrapIfSingleStmt(condDiffOuter.getStmt()));
     addToCurrentBlock(initResult.getStmt_dx(), direction::reverse);
+    addToCurrentBlock(Reverse, direction::reverse);
     if (condDiffOuter.getStmt_dx()) {
       if(m_CurrentBreakFlagExpr) {
         Expr* loopBreakFlagCond = BuildOp(UnaryOperatorKind::UO_LNot,
@@ -1095,7 +1096,6 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
         addToCurrentBlock(condDiffOuter.getStmt_dx(), direction::reverse);
       }
     }
-    addToCurrentBlock(Reverse, direction::reverse);
     Reverse = endBlock(direction::reverse);
     endScope();
 
@@ -3487,7 +3487,9 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
     // loop iteration-expression.
     if (!isForLoop)
       addToCurrentBlock(counterDecrement, direction::reverse);
-    addToCurrentBlock(condDiff->getStmt_dx(), direction::reverse);
+    if (condDiff && condDiff->getStmt_dx()) {
+      addToCurrentBlock(condDiff->getStmt_dx(), direction::reverse);
+    }
     addToCurrentBlock(condVarDiff, direction::reverse);
     addToCurrentBlock(bodyDiff.getStmt_dx(), direction::reverse);
     bodyDiff = {bodyDiff.getStmt(),
@@ -3514,7 +3516,7 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
     Stmt* CFCaseStmt = activeBreakContHandler->GetNextCFCaseStmt();
     Stmt* pushExprToCurrentCase = activeBreakContHandler
                                       ->CreateCFTapePushExprToCurrentCase();
-    if (isInsideLoop) {
+    if (isInsideLoop && !activeBreakContHandler->m_IsInvokedBySwitchStmt) {
       if (!m_CurrentBreakFlagExpr) {
         m_CurrentBreakFlagExpr = BuildDeclRef(GlobalStoreImpl(m_Context.IntTy, "_t"));
         Expr* breakFlagInitExpr = BuildOp(BinaryOperatorKind::BO_Assign, m_CurrentBreakFlagExpr,
