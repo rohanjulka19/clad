@@ -856,21 +856,17 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
 
     StmtDiff thenDiff = VisitBranch(If->getThen());
     StmtDiff elseDiff = VisitBranch(If->getElse());
-    if (thenDiff.getStmt()) {
-      Stmt* Forward = clad_compat::IfStmt_Create(
-          m_Context, noLoc, If->isConstexpr(), /*Init=*/nullptr, /*Var=*/nullptr,
-          condDiffStored, noLoc, noLoc, thenDiff.getStmt(), noLoc,
-          elseDiff.getStmt());
-      addToCurrentBlock(Forward, direction::forward);
-    }
+    Stmt* Forward = clad_compat::IfStmt_Create(
+        m_Context, noLoc, If->isConstexpr(), /*Init=*/nullptr, /*Var=*/nullptr,
+        condDiffStored, noLoc, noLoc, thenDiff.getStmt(), noLoc,
+        elseDiff.getStmt());
+    addToCurrentBlock(Forward, direction::forward);
 
-    if (thenDiff.getStmt_dx()) {
-      Stmt* Reverse = clad_compat::IfStmt_Create(
-          m_Context, noLoc, If->isConstexpr(),  /*Init=*/nullptr, /*Var=*/nullptr,
-          condDiffStored, noLoc, noLoc, thenDiff.getStmt_dx(), noLoc,
-          elseDiff.getStmt_dx());
-      addToCurrentBlock(Reverse, direction::reverse);
-    }
+    Stmt* Reverse = clad_compat::IfStmt_Create(
+        m_Context, noLoc, If->isConstexpr(), /*Init=*/nullptr, /*Var=*/nullptr,
+        condDiffStored, noLoc, noLoc, thenDiff.getStmt_dx(), noLoc,
+        elseDiff.getStmt_dx());
+    addToCurrentBlock(Reverse, direction::reverse);
     CompoundStmt* ForwardBlock = endBlock(direction::forward);
     CompoundStmt* ReverseBlock = endBlock(direction::reverse);
     endScope();
@@ -2389,21 +2385,10 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
     } else if (opCode == BO_Comma) {
       auto* zero =
           ConstantFolder::synthesizeLiteral(m_Context.IntTy, m_Context, 0);
-      Rdiff = Visit(R, dfdx());
       Ldiff = Visit(L, zero);
+      Rdiff = Visit(R, dfdx());
       valueForRevPass = Ldiff.getRevSweepAsExpr();
       ResultRef = Ldiff.getExpr();
-    } else if (opCode == BO_LAnd) {
-      StmtDiff BinOpClone = Clone(BinOp);
-      auto* IfStmt =
-          clad_compat::IfStmt_Create(m_Context, noLoc, false, nullptr, nullptr,
-                                     L, noLoc, noLoc, R, noLoc, nullptr);
-
-      StmtDiff IfStmtDiff = VisitIfStmt(IfStmt);
-      addToCurrentBlock(utils::unwrapIfSingleStmt(IfStmtDiff.getStmt()));
-      addToCurrentBlock(utils::unwrapIfSingleStmt(IfStmtDiff.getStmt_dx()),
-                        direction::reverse);
-      return BinOpClone;
     } else {
       // We should not output any warning on visiting boolean conditions
       // FIXME: We should support boolean differentiation or ignore it
