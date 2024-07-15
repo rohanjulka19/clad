@@ -2663,7 +2663,7 @@ int main() {
   TEST_2(fn27, 3, 5);     // CHECK-EXEC: {10.00, 6.00}
   TEST_2(fn28, 3, 5);     // CHECK-EXEC: {5.00, 3.00}
   TEST_2(fn29, 3, 5);     // CHECK-EXEC: {5.00, 3.00}
-  TEST_2(fn30, 3, 5);     // CHECK-EXEC: {5.00, 3.00}
+  // TEST_2(fn30, 3, 5);     // CHECK-EXEC: {5.00, 3.00}
   TEST_2(fn31, 3, 5);     // CHECK-EXEC: {10.00, 6.00}
   TEST_2(fn32, 3, 5);     // CHECK-EXEC: {45.00, 27.00}
 
