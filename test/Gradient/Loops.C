@@ -2324,6 +2324,102 @@ double fn29(double i, double j) {
 // CHECK-NEXT:     }
 // CHECK-NEXT: }
 
+double fn30(double i, double j) {
+  double res = 0;
+  for (int c = 0; (res=i*j); ++c) {
+      if ((c == 0) && (res += i*j)) {
+        break;
+      }
+  }
+  return res;
+}
+
+//CHECK: void fn30_grad(double i, double j, double *_d_i, double *_d_j) {
+//CHECK-NEXT:     double _d_res = 0;
+//CHECK-NEXT:     unsigned {{int|long}} _t0;
+//CHECK-NEXT:     int _d_c = 0;
+//CHECK-NEXT:     int c = 0;
+//CHECK-NEXT:     clad::tape<double> _t1 = {};
+//CHECK-NEXT:     bool _cond0;
+//CHECK-NEXT:     double _d_cond0;
+//CHECK-NEXT:     clad::tape<bool> _cond1 = {};
+//CHECK-NEXT:     clad::tape<bool> _t2 = {};
+//CHECK-NEXT:     clad::tape<double> _t3 = {};
+//CHECK-NEXT:     clad::tape<bool> _cond2 = {};
+//CHECK-NEXT:     clad::tape<unsigned {{int|long}}> _t4 = {};
+//CHECK-NEXT:     double res = 0;
+//CHECK-NEXT:     _t0 = {{0U|0UL}};
+//CHECK-NEXT:     for (c = 0; ; ++c) {
+//CHECK-NEXT:         {
+//CHECK-NEXT:             {
+//CHECK-NEXT:                 clad::push(_t1, res);
+//CHECK-NEXT:             }
+//CHECK-NEXT:             if (!(res = i * j))
+//CHECK-NEXT:                 break;
+//CHECK-NEXT:         }
+//CHECK-NEXT:         _t0++;
+//CHECK-NEXT:         {
+//CHECK-NEXT:             {
+//CHECK-NEXT:                 clad::push(_cond1, (c == 0));
+//CHECK-NEXT:                 if (clad::back(_cond1)) {
+//CHECK-NEXT:                     clad::push(_t2, _cond0);
+//CHECK-NEXT:                     clad::push(_t3, res);
+//CHECK-NEXT:                     _cond0 = (res += i * j);
+//CHECK-NEXT:                 }
+//CHECK-NEXT:             }
+//CHECK-NEXT:             clad::push(_cond2, clad::back(_cond1) && _cond0);
+//CHECK-NEXT:             if (clad::back(_cond2)) {
+//CHECK-NEXT:                 {
+//CHECK-NEXT:                     clad::push(_t4, {{1U|1UL}});
+//CHECK-NEXT:                     break;
+//CHECK-NEXT:                 }
+//CHECK-NEXT:             }
+//CHECK-NEXT:         }
+//CHECK-NEXT:         clad::push(_t4, {{2U|2UL}});
+//CHECK-NEXT:     }
+//CHECK-NEXT:     _d_res += 1;
+//CHECK-NEXT:     for (;; _t0--) {
+//CHECK-NEXT:         {
+//CHECK-NEXT:             if (!_t0 || clad::back(_t4) != 1) {
+//CHECK-NEXT:                 res = clad::pop(_t1);
+//CHECK-NEXT:                 double _r_d0 = _d_res;
+//CHECK-NEXT:                 _d_res -= _r_d0;
+//CHECK-NEXT:                 *_d_i += _r_d0 * j;
+//CHECK-NEXT:                 *_d_j += i * _r_d0;
+//CHECK-NEXT:             }
+//CHECK-NEXT:             if (!_t0)
+//CHECK-NEXT:                 break;
+//CHECK-NEXT:         }
+//CHECK-NEXT:         switch (clad::pop(_t4)) {
+//CHECK-NEXT:           case {{2U|2UL}}:
+//CHECK-NEXT:             ;
+//CHECK-NEXT:             --c;
+//CHECK-NEXT:             {
+//CHECK-NEXT:                 if (clad::back(_cond2)) {
+//CHECK-NEXT:                   case {{1U|1UL}}:
+//CHECK-NEXT:                     ;
+//CHECK-NEXT:                 }
+//CHECK-NEXT:                 clad::pop(_cond2);
+//CHECK-NEXT:                 {
+//CHECK-NEXT:                     {
+//CHECK-NEXT:                         if (clad::back(_cond1)) {
+//CHECK-NEXT:                             _cond0 = clad::pop(_t2);
+//CHECK-NEXT:                             double _r_d1 = _d_cond0;
+//CHECK-NEXT:                             _d_cond0 -= _r_d1;
+//CHECK-NEXT:                             _d_res += _r_d1;
+//CHECK-NEXT:                             res = clad::pop(_t3);
+//CHECK-NEXT:                             double _r_d2 = _d_res;
+//CHECK-NEXT:                             *_d_i += _r_d2 * j;
+//CHECK-NEXT:                             *_d_j += i * _r_d2;
+//CHECK-NEXT:                         }
+//CHECK-NEXT:                         clad::pop(_cond1);
+//CHECK-NEXT:                     }
+//CHECK-NEXT:                 }
+//CHECK-NEXT:             }
+//CHECK-NEXT:         }
+//CHECK-NEXT:     }
+//CHECK-NEXT: }
+
 double fn31(double i, double j) {
   double res = 0;
   for (int c = 0; (res = i * j), (res=2*i*j), c < 3; ++c) {}
@@ -2604,6 +2700,7 @@ int main() {
   TEST_2(fn27, 3, 5);     // CHECK-EXEC: {10.00, 6.00}
   TEST_2(fn28, 3, 5);     // CHECK-EXEC: {5.00, 3.00}
   TEST_2(fn29, 3, 5);     // CHECK-EXEC: {5.00, 3.00}
+  TEST_2(fn30, 3, 5); // CHECK-EXEC: {10.00, 6.00}
   TEST_2(fn31, 3, 5);     // CHECK-EXEC: {10.00, 6.00}
   TEST_2(fn32, 3, 5);     // CHECK-EXEC: {45.00, 27.00}
 
