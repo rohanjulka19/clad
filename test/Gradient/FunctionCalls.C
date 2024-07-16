@@ -992,6 +992,7 @@ double sq_defined_later(double x) {
 // CHECK: void check_and_return_pullback(double x, char c, const char *s, double _d_y, double *_d_x, char *_d_c, char *_d_s) {
 // CHECK-NEXT:    bool _cond0;
 // CHECK-NEXT:    double _d_cond0;
+// CHECK-NEXT:    _d_cond0 = 0.;
 // CHECK-NEXT:    bool _cond1;
 // CHECK-NEXT:    bool _t0;
 // CHECK-NEXT:    bool _cond2;

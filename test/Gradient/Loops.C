@@ -2342,6 +2342,7 @@ double fn30(double i, double j) {
 //CHECK-NEXT:     clad::tape<double> _t1 = {};
 //CHECK-NEXT:     bool _cond0;
 //CHECK-NEXT:     double _d_cond0;
+//CHECK-NEXT:     _d_cond0 = 0.;
 //CHECK-NEXT:     clad::tape<bool> _cond1 = {};
 //CHECK-NEXT:     clad::tape<bool> _t2 = {};
 //CHECK-NEXT:     clad::tape<double> _t3 = {};

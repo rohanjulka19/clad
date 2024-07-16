@@ -2462,6 +2462,9 @@ Expr* getArraySizeExpr(const ArrayType* AT, ASTContext& context,
       VarDecl* condVar = GlobalStoreImpl(m_Context.BoolTy, "_cond");
       VarDecl* derivedCondVar = GlobalStoreImpl(
           m_Context.DoubleTy, "_d" + condVar->getNameAsString());
+      addToBlock(BuildOp(BO_Assign, BuildDeclRef(derivedCondVar),
+                         ConstantFolder::synthesizeLiteral(m_Context.DoubleTy,
+                                                           m_Context, 0)), m_Globals);
       Expr* condVarRef = BuildDeclRef(condVar);
       Expr* assignExpr = BuildOp(BO_Assign, condVarRef, Clone(R));
       m_Variables.emplace(condVar, BuildDeclRef(derivedCondVar));

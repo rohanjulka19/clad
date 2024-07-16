@@ -944,6 +944,7 @@ double fn_cond_false(double i, double j) {
 // CHECK-NEXT:    double _d_res = 0;
 // CHECK-NEXT:    bool _cond0;
 // CHECK-NEXT:    double _d_cond0;
+// CHECK-NEXT:    _d_cond0 = 0.;
 // CHECK-NEXT:    bool _cond1;
 // CHECK-NEXT:    bool _t0;
 // CHECK-NEXT:    bool _cond2;
@@ -996,8 +997,10 @@ double fn_cond_add_assign(double i, double j) {
 // CHECK-NEXT:    double _d_res = 0;
 // CHECK-NEXT:    bool _cond0;
 // CHECK-NEXT:    double _d_cond0;
+// CHECK-NEXT:    _d_cond0 = 0.;
 // CHECK-NEXT:    bool _cond1;
 // CHECK-NEXT:    double _d_cond1;
+// CHECK-NEXT:    _d_cond1 = 0.;
 // CHECK-NEXT:    double _t0;
 // CHECK-NEXT:    bool _cond2;
 // CHECK-NEXT:    bool _t1;
